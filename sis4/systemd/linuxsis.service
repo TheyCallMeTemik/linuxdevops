@@ -1,0 +1,12 @@
+[Unit]
+Description=LinuxSIS Backend Service
+After=docker.service
+Requires=docker.service
+
+[Service]
+Restart=always
+ExecStart=/usr/bin/docker run --rm --name linuxsis -p 8080:8080 theycallmetemik/linuxsis
+ExecStop=/usr/bin/docker stop linuxsis
+
+[Install]
+WantedBy=multi-user.target
