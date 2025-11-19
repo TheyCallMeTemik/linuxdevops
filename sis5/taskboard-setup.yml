@@ -1,5 +1,5 @@
 ---
-# App Server Setup (VM1)
+
 - name: Configure App Server (VM1)
   hosts: appserver
   become: yes
@@ -92,7 +92,7 @@
 
 ---
 
-# DB Server Setup (VM2)
+
 - name: Configure DB Server (VM2)
   hosts: dbserver
   become: yes
