@@ -1,0 +1,126 @@
+---
+# App Server Setup (VM1)
+- name: Configure App Server (VM1)
+  hosts: appserver
+  become: yes
+  tasks:
+    - name: Create user roles and set permissions
+      user:
+        name: "{{ item }}"
+        state: present
+        groups: "{{ item }}_group"
+        shell: /bin/bash
+      loop:
+        - admin
+        - developer
+        - automation_bot
+        - taskboard_user
+        - nginx_user
+
+    - name: Install system packages on VM1
+      apt:
+        name:
+          - nodejs
+          - npm
+          - nginx
+          - ufw
+          - docker.io
+        state: present
+        update_cache: yes
+
+    - name: Configure firewall for VM1
+      ufw:
+        rule: allow
+        name: "{{ item }}"
+      loop:
+        - ssh
+        - http
+        - https
+
+    - name: Pull TaskBoard Docker image from Docker Hub
+      docker_image:
+        name: theycallmetemik/linuxsis
+        tag: latest
+        source: pull
+
+    - name: Run TaskBoard container
+      docker_container:
+        name: taskboard
+        image: theycallmetemik/linuxsis:latest
+        restart_policy: always
+        ports:
+          - "3000:3000"
+        state: started
+
+    - name: Create systemd service for TaskBoard container
+      copy:
+        dest: /etc/systemd/system/taskboard.service
+        content: |
+          [Unit]
+          Description=TaskBoard Docker Container
+          After=docker.service
+          Requires=docker.service
+
+          [Service]
+          Restart=always
+          ExecStart=/usr/bin/docker start -a taskboard
+          ExecStop=/usr/bin/docker stop taskboard
+
+          [Install]
+          WantedBy=default.target
+      notify:
+        - reload systemd
+
+    - name: Schedule container health check cron job
+      cron:
+        name: "Health check TaskBoard container"
+        minute: "*/10"
+        job: "/usr/bin/docker ps -q -f name=taskboard || /usr/bin/docker start taskboard"
+        state: present
+
+    - name: Schedule log cleanup cron job
+      cron:
+        name: "Clean up TaskBoard logs"
+        minute: "0 0 * * *"
+        job: "find /var/log/taskboard -type f -name '*.log' -exec rm {} \;"
+        state: present
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes
+
+---
+
+# DB Server Setup (VM2)
+- name: Configure DB Server (VM2)
+  hosts: dbserver
+  become: yes
+  tasks:
+    - name: Install PostgreSQL and dependencies
+      apt:
+        name:
+          - postgresql
+          - postgresql-contrib
+          - ufw
+        state: present
+        update_cache: yes
+
+    - name: Configure firewall for PostgreSQL
+      ufw:
+        rule: allow
+        port: "5432"
+        proto: tcp
+
+    - name: Create PostgreSQL database and user
+      postgresql_db:
+        name: taskboard
+        state: present
+
+    - name: Create PostgreSQL user with privileges
+      postgresql_user:
+        name: taskboard_user
+        password: "{{ db_password }}"
+        db: taskboard
+        priv: "ALL"
+        state: present
