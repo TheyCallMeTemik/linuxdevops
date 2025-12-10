@@ -1,0 +1,36 @@
+---
+- name: Setup journaling and auditing
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Ensure systemd-journald is configured
+      ansible.builtin.lineinfile:
+        path: /etc/systemd/journald.conf
+        regexp: '^#SystemMaxUse'
+        line: 'SystemMaxUse=500M'
+
+    - name: Restart systemd-journald
+      ansible.builtin.systemd:
+        name: systemd-journald
+        state: restarted
+
+    - name: Install auditd
+      ansible.builtin.package:
+        name: auditd
+        state: present
+
+    - name: Ensure auditd is running
+      ansible.builtin.systemd:
+        name: auditd
+        state: started
+        enabled: yes
+
+    - name: Add audit rule for sudoers file
+      ansible.builtin.lineinfile:
+        path: /etc/audit/rules.d/audit.rules
+        line: "-w /etc/sudoers -p wa -k sudoers_change"
+
+    - name: Restart auditd to apply changes
+      ansible.builtin.systemd:
+        name: auditd
+        state: restarted
