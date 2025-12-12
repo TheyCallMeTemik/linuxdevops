@@ -18,6 +18,29 @@ jobs:
 
       - name: Run Ansible Playbook
         run: |
+          ansible-playbook taskboard-setup.yml --inventory ${VM_IP}, --user ${VM_USER} --private-key "${{ secrets.SSH_P>
+        env:
+          VM_IP: ${{ secrets.VM_IP }}
+          VM_USER: ${{ secrets.VM_USER }}name: Run Ansible Playbook
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  run_ansible:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Ansible
+        uses: dawidd6/action-install-ansible@v2
+
+      - name: Run Ansible Playbook
+        run: |
           ansible-playbook taskboard-setup.yml --inventory ${VM_IP}, --user ${VM_USER} --private-key "${{ secrets.SSH_PRIVATE_KEY }}"
         env:
           VM_IP: ${{ secrets.VM_IP }}
